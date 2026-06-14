@@ -11,8 +11,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.taskflow.app.R
 import com.taskflow.app.adapter.TareaAdapter
 import com.taskflow.app.data.db.TaskFlowDatabase
+import com.taskflow.app.data.repository.TareaRepository
 import com.taskflow.app.databinding.ActivityMainBinding
 import com.taskflow.app.model.Tarea
+import com.taskflow.app.util.SesionManager
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -22,18 +24,26 @@ import kotlinx.coroutines.launch
  *  Lógica de botones: Jonathan Quinto
  * ─────────────────────────────────────────────
  *
- *  Responsabilidades de esta pantalla:
- *  - Mostrar la lista de tareas en tiempo real
- *  - Botón FAB (+) para agregar nueva tarea
- *  - Menú con acceso a Categorías y Estadísticas
- *  - Acciones de cada tarea: Editar, Eliminar, Completar
+ *  Comportamiento según rol:
+ *
+ *  LÍDER:
+ *   - Ve todas las tareas que creó
+ *   - Puede agregar, editar, eliminar y asignar
+ *   - El título del toolbar muestra "TaskFlow — Líder"
+ *   - El FAB (+) está visible
+ *
+ *  PARTICIPANTE:
+ *   - Ve solo las tareas asignadas a él
+ *   - Puede marcar tareas como completadas
+ *   - NO puede crear, editar ni eliminar tareas
+ *   - El FAB (+) está oculto
+ *   - Los botones Editar/Eliminar están ocultos en el adapter
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-
-    // Acceso a la base de datos Room
-    private val db by lazy { TaskFlowDatabase.obtenerInstancia(this) }
+    private lateinit var sesionManager: SesionManager
+    private lateinit var tareaRepository: TareaRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,79 +52,88 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
 
+        val db = TaskFlowDatabase.obtenerInstancia(this)
+        sesionManager = SesionManager(this)
+        tareaRepository = TareaRepository(db.tareaDao(), db.usuarioDao(), sesionManager)
+
+        configurarToolbarPorRol()
         configurarRecyclerView()
         observarTareas()
         configurarBotones()
     }
 
     /**
-     * Configura el RecyclerView con su adaptador y layout manager.
+     * Adapta el toolbar según el rol del usuario activo.
+     * El Líder ve el FAB. El Participante no.
      */
+    private fun configurarToolbarPorRol() {
+        val nombre = sesionManager.getNombre()
+        val rol = if (sesionManager.esLider()) "Líder" else "Participante"
+        supportActionBar?.subtitle = "$nombre · $rol"
+
+        // Solo el Líder puede crear tareas
+        binding.fabAgregarTarea.visibility =
+            if (sesionManager.esLider()) View.VISIBLE else View.GONE
+    }
+
     private fun configurarRecyclerView() {
         binding.rvTareas.layoutManager = LinearLayoutManager(this)
     }
 
     /**
-     * Observa la base de datos en tiempo real.
-     * Cada vez que cambia una tarea, la lista se actualiza sola.
+     * Observa el repositorio en tiempo real.
+     * El repositorio decide automáticamente qué query usar según el rol.
      */
     private fun observarTareas() {
         lifecycleScope.launch {
             try {
-                db.tareaDao().obtenerTodas().collectLatest { listaTareas ->
+                tareaRepository.obtenerTareasPorRol().collectLatest { listaTareas ->
                     actualizarUI(listaTareas)
                 }
             } catch (e: Exception) {
-                // Si falla la DB, mostramos el estado vacío en lugar de crashear
                 mostrarEstadoVacio(true)
             }
         }
     }
 
-    /**
-     * Actualiza la interfaz según si hay tareas o no.
-     * - Sin tareas: muestra el mensaje "No hay tareas, presiona + para agregar"
-     * - Con tareas: muestra el RecyclerView con la lista
-     */
     private fun actualizarUI(lista: List<Tarea>) {
         if (lista.isEmpty()) {
             mostrarEstadoVacio(true)
-        } else {
-            mostrarEstadoVacio(false)
-            val adaptador = TareaAdapter(
-                lista = lista,
-                // ── Acción EDITAR ──
-                onEditar = { tarea ->
+            return
+        }
+
+        mostrarEstadoVacio(false)
+
+        val esLider = sesionManager.esLider()
+
+        val adaptador = TareaAdapter(
+            lista = lista,
+            mostrarAcciones = esLider, // El participante no ve Editar/Eliminar
+            onEditar = { tarea ->
+                if (esLider) {
                     val intent = Intent(this, EditarTareaActivity::class.java)
                     intent.putExtra("TAREA_ID", tarea.id)
                     startActivity(intent)
-                },
-                // ── Acción ELIMINAR ──
-                onEliminar = { tarea ->
-                    confirmarEliminar(tarea)
-                },
-                // ── Acción COMPLETAR (checkbox) ──
-                onCompletarToggle = { tarea ->
-                    cambiarEstadoTarea(tarea)
                 }
-            )
-            binding.rvTareas.adapter = adaptador
-        }
+            },
+            onEliminar = { tarea ->
+                if (esLider) confirmarEliminar(tarea)
+            },
+            onCompletarToggle = { tarea ->
+                cambiarEstadoTarea(tarea)
+            }
+        )
+        binding.rvTareas.adapter = adaptador
     }
 
-    /**
-     * Muestra u oculta el estado vacío y el RecyclerView.
-     */
     private fun mostrarEstadoVacio(vacio: Boolean) {
         binding.layoutVacio.visibility = if (vacio) View.VISIBLE else View.GONE
         binding.rvTareas.visibility = if (vacio) View.GONE else View.VISIBLE
     }
 
     /**
-     * ── BOTONES DE LA PANTALLA ──
+     * ── BOTONES ──
      * Responsable: Jonathan Quinto
-     *
-     * FAB (+): abre la pantalla de agregar tarea
      */
     private fun configurarBotones() {
         binding.fabAgregarTarea.setOnClickListener {
@@ -122,54 +141,33 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Muestra un diálogo de confirmación antes de eliminar.
-     * Evita eliminaciones accidentales.
-     */
     private fun confirmarEliminar(tarea: Tarea) {
         android.app.AlertDialog.Builder(this)
             .setTitle("Eliminar tarea")
             .setMessage("¿Deseas eliminar \"${tarea.titulo}\"? Esta acción no se puede deshacer.")
             .setPositiveButton("Eliminar") { _, _ ->
                 lifecycleScope.launch {
-                    try {
-                        db.tareaDao().eliminar(tarea)
-                    } catch (e: Exception) {
-                        mostrarError("No se pudo eliminar la tarea. Intenta de nuevo.")
-                    }
+                    val ok = tareaRepository.eliminarTarea(tarea)
+                    if (!ok) mostrarError("No se pudo eliminar la tarea.")
                 }
             }
             .setNegativeButton("Cancelar", null)
             .show()
     }
 
-    /**
-     * Cambia el estado de una tarea entre pendiente y completada.
-     * Invierte el valor actual del campo 'completada'.
-     */
     private fun cambiarEstadoTarea(tarea: Tarea) {
         lifecycleScope.launch {
-            try {
-                val tareaActualizada = tarea.copy(completada = !tarea.completada)
-                db.tareaDao().actualizar(tareaActualizada)
-            } catch (e: Exception) {
-                mostrarError("No se pudo actualizar la tarea.")
-            }
+            val ok = tareaRepository.toggleCompletada(tarea)
+            if (!ok) mostrarError("No se pudo actualizar la tarea.")
         }
     }
 
-    /**
-     * Muestra un mensaje de error como Snackbar al usuario.
-     */
     private fun mostrarError(mensaje: String) {
         com.google.android.material.snackbar.Snackbar
             .make(binding.root, mensaje, com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
             .show()
     }
 
-    /**
-     * Menú de tres puntos — acceso a Categorías y Estadísticas
-     */
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
@@ -183,6 +181,10 @@ class MainActivity : AppCompatActivity() {
             }
             R.id.menu_estadisticas -> {
                 startActivity(Intent(this, EstadisticasActivity::class.java))
+                true
+            }
+            R.id.menu_perfil -> {
+                startActivity(Intent(this, PerfilActivity::class.java))
                 true
             }
             else -> super.onOptionsItemSelected(item)

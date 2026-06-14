@@ -1,17 +1,18 @@
 package com.taskflow.app.ui.activities
 
 import android.os.Bundle
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.taskflow.app.data.db.TaskFlowDatabase
+import com.taskflow.app.data.repository.TareaRepository
 import com.taskflow.app.databinding.ActivityAgregarTareaBinding
-import com.taskflow.app.model.Tarea
+import com.taskflow.app.model.Usuario
+import com.taskflow.app.util.SesionManager
 import com.taskflow.app.util.ValidadorTarea
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
 
 /**
  * ─────────────────────────────────────────────
@@ -19,17 +20,23 @@ import java.util.*
  *  Lógica y validaciones: Jonathan Quinto
  * ─────────────────────────────────────────────
  *
- *  Flujo de esta pantalla:
- *  1. Usuario llena el formulario
- *  2. Presiona GUARDAR
- *  3. ValidadorTarea revisa que el título no esté vacío
- *  4. Si pasa la validación → se guarda en Room
- *  5. Si falla → se muestra error en el campo
+ *  Solo accesible para el Líder (el FAB está oculto
+ *  para los Participantes en MainActivity).
+ *
+ *  Flujo:
+ *  1. Líder llena título, descripción, prioridad, categoría
+ *  2. Selecciona a cuál participante asignar (spinner)
+ *     - Si no hay participantes → puede guardar sin asignar
+ *  3. Presiona GUARDAR
+ *  4. TareaRepository crea la tarea con creadaPor automático
  */
 class AgregarTareaActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityAgregarTareaBinding
-    private val db by lazy { TaskFlowDatabase.obtenerInstancia(this) }
+    private lateinit var tareaRepository: TareaRepository
+
+    // Lista de participantes disponibles para asignar
+    private var participantes: List<Usuario> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,16 +46,18 @@ class AgregarTareaActivity : AppCompatActivity() {
         supportActionBar?.title = "Nueva Tarea"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
+        val db = TaskFlowDatabase.obtenerInstancia(this)
+        val sesion = SesionManager(this)
+        tareaRepository = TareaRepository(db.tareaDao(), db.usuarioDao(), sesion)
+
         configurarSpinners()
+        cargarParticipantes()
         configurarBotones()
     }
 
-    /**
-     * Carga las opciones de los Spinners de Prioridad y Categoría.
-     */
     private fun configurarSpinners() {
         val prioridades = arrayOf("Alta", "Media", "Baja")
-        val categorias = arrayOf("Personal", "Trabajo", "Estudios", "Compras")
+        val categorias  = arrayOf("Personal", "Trabajo", "Estudios", "Compras")
 
         binding.spinnerPrioridad.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_dropdown_item, prioridades
@@ -61,15 +70,38 @@ class AgregarTareaActivity : AppCompatActivity() {
     }
 
     /**
+     * Carga los participantes disponibles para el spinner de asignación.
+     * Si no hay ninguno, oculta el spinner y muestra un mensaje.
+     */
+    private fun cargarParticipantes() {
+        lifecycleScope.launch {
+            try {
+                participantes = tareaRepository.obtenerParticipantes()
+
+                if (participantes.isEmpty()) {
+                    binding.layoutAsignar.visibility = View.GONE
+                    binding.tvSinParticipantes.visibility = View.VISIBLE
+                } else {
+                    binding.layoutAsignar.visibility = View.VISIBLE
+                    binding.tvSinParticipantes.visibility = View.GONE
+
+                    // "Sin asignar" como primera opción
+                    val opciones = listOf("Sin asignar") + participantes.map { it.nombre }
+                    binding.spinnerAsignar.adapter = ArrayAdapter(
+                        this@AgregarTareaActivity,
+                        android.R.layout.simple_spinner_dropdown_item,
+                        opciones
+                    )
+                }
+            } catch (e: Exception) {
+                binding.layoutAsignar.visibility = View.GONE
+            }
+        }
+    }
+
+    /**
      * ── BOTÓN GUARDAR ──
      * Responsable: Jonathan Quinto
-     *
-     * Pasos:
-     * 1. Lee el texto del campo título
-     * 2. Llama a ValidadorTarea.validarFormulario()
-     * 3. Si la validación falla → sale (el error ya se muestra en el campo)
-     * 4. Si pasa → crea el objeto Tarea y lo inserta en la DB
-     * 5. Usa try-catch para no crashear si la DB falla
      */
     private fun configurarBotones() {
         binding.btnGuardar.setOnClickListener {
@@ -78,47 +110,56 @@ class AgregarTareaActivity : AppCompatActivity() {
     }
 
     private fun guardarTarea() {
-        // Paso 1: Leer el título ingresado
-        val titulo = binding.etTitulo.editText?.text.toString().trim()
+        val titulo      = binding.etTitulo.editText?.text.toString().trim()
         val descripcion = binding.etDescripcion.editText?.text.toString().trim()
-        val prioridad = binding.spinnerPrioridad.selectedItem.toString()
-        val categoria = binding.spinnerCategoria.selectedItem.toString()
+        val prioridad   = binding.spinnerPrioridad.selectedItem.toString()
+        val categoria   = binding.spinnerCategoria.selectedItem.toString()
+        val fechaLimite = binding.etFechaLimite.editText?.text.toString().trim()
 
-        // Paso 2: Validar con ValidadorTarea
+        // Validar con ValidadorTarea
         val esValido = ValidadorTarea.validarFormulario(
             layoutTitulo = binding.etTitulo,
             titulo = titulo
         )
-
-        // Paso 3: Si no es válido, salir (el error ya está en el campo)
         if (!esValido) return
 
-        // Paso 4: Crear el objeto Tarea
-        val fechaActual = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
-        val nuevaTarea = Tarea(
-            titulo = titulo,
-            descripcion = descripcion,
-            prioridad = prioridad,
-            categoria = categoria,
-            completada = false,
-            fechaCreacion = fechaActual
-        )
+        // Determinar a quién asignar
+        val posicionAsignado = binding.spinnerAsignar.selectedItemPosition
+        val asignadoA: Int? = when {
+            participantes.isEmpty() -> null          // No hay participantes
+            posicionAsignado == 0   -> null          // "Sin asignar" seleccionado
+            else -> participantes[posicionAsignado - 1].id
+        }
 
-        // Paso 5: Guardar en la base de datos con try-catch
         lifecycleScope.launch {
             try {
-                db.tareaDao().insertar(nuevaTarea)
-                Toast.makeText(
-                    this@AgregarTareaActivity,
-                    "Tarea \"$titulo\" guardada",
-                    Toast.LENGTH_SHORT
-                ).show()
-                finish() // Cierra esta pantalla y regresa al inicio
+                val ok = tareaRepository.crearTarea(
+                    titulo      = titulo,
+                    descripcion = descripcion,
+                    prioridad   = prioridad,
+                    categoria   = categoria,
+                    fechaLimite = fechaLimite,
+                    asignadoA   = asignadoA
+                )
+
+                if (ok) {
+                    Toast.makeText(
+                        this@AgregarTareaActivity,
+                        "Tarea \"$titulo\" guardada",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    finish()
+                } else {
+                    Toast.makeText(
+                        this@AgregarTareaActivity,
+                        "Error al guardar la tarea. Intenta de nuevo.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             } catch (e: Exception) {
-                // Si la base de datos falla, mostramos error sin crashear
                 Toast.makeText(
                     this@AgregarTareaActivity,
-                    "Error al guardar la tarea. Intenta de nuevo.",
+                    "Error inesperado. Intenta de nuevo.",
                     Toast.LENGTH_LONG
                 ).show()
             }
