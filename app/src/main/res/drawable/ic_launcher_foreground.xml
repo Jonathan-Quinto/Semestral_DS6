@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Clipboard base -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,30 L38,78 L70,78 L70,30 Z"/>
+    <!-- Clipboard top clip -->
+    <path
+        android:fillColor="#CCCCCC"
+        android:pathData="M44,26 Q44,22 54,22 Q64,22 64,26 L64,30 L44,30 Z"/>
+    <!-- Checkmark -->
+    <path
+        android:strokeColor="#4CAF50"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M44,54 L51,61 L64,47"/>
+    <!-- Lines suggesting tasks -->
+    <path
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M44,68 L64,68"/>
+    <path
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M44,40 L64,40"/>
+</vector>
