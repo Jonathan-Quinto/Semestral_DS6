@@ -19,14 +19,16 @@ import kotlinx.coroutines.launch
  *  LÍDER:
  *   - Total de tareas creadas
  *   - Completadas / Pendientes
- *   - Sin asignar (extra útil para el líder)
+ *   - Sin asignar
  *   - Porcentaje de progreso del equipo
+ *   - Conteo por categoría (solo las que él creó)
  *
  *  PARTICIPANTE:
  *   - Total de tareas asignadas a él
  *   - Completadas / Pendientes
  *   - Porcentaje de progreso personal
- *   - La sección "Sin asignar" queda oculta
+ *   - Sección "Sin asignar" oculta
+ *   - Conteo por categoría (solo las que le asignaron)
  */
 class EstadisticasActivity : AppCompatActivity() {
 
@@ -54,7 +56,7 @@ class EstadisticasActivity : AppCompatActivity() {
     private fun cargarEstadisticas() {
         lifecycleScope.launch {
             try {
-                val total      = tareaRepository.contarTotal()
+                val total       = tareaRepository.contarTotal()
                 val completadas = tareaRepository.contarCompletadas()
                 val pendientes  = total - completadas
                 val porcentaje  = if (total > 0) (completadas * 100) / total else 0
@@ -75,21 +77,23 @@ class EstadisticasActivity : AppCompatActivity() {
                     binding.layoutSinAsignar.visibility = android.view.View.GONE
                 }
 
-                // Conteo por categoría (usando DAO directo porque el repo no tiene este método por rol aún)
-                val dao = TaskFlowDatabase.obtenerInstancia(this@EstadisticasActivity).tareaDao()
+                // Conteo por categoría — filtrado correctamente por rol
+                val dao       = TaskFlowDatabase.obtenerInstancia(this@EstadisticasActivity).tareaDao()
                 val usuarioId = sesionManager.getUsuarioId()
 
-                if (sesionManager.esLider()) {
-                    binding.tvPersonal.text  = "Personal: ${dao.contarPorCategoriaYLider(usuarioId, "Personal")} tareas"
-                    binding.tvTrabajo.text   = "Trabajo: ${dao.contarPorCategoriaYLider(usuarioId, "Trabajo")} tareas"
-                    binding.tvEstudios.text  = "Estudios: ${dao.contarPorCategoriaYLider(usuarioId, "Estudios")} tareas"
-                    binding.tvCompras.text   = "Compras: ${dao.contarPorCategoriaYLider(usuarioId, "Compras")} tareas"
+                val categorias = listOf("Personal", "Trabajo", "Estudios", "Compras")
+                val conteos = if (sesionManager.esLider()) {
+                    categorias.map { dao.contarPorCategoriaYLider(usuarioId, it) }
                 } else {
-                    binding.tvPersonal.text  = "Personal: ${dao.contarPorCategoria("Personal")} tareas"
-                    binding.tvTrabajo.text   = "Trabajo: ${dao.contarPorCategoria("Trabajo")} tareas"
-                    binding.tvEstudios.text  = "Estudios: ${dao.contarPorCategoria("Estudios")} tareas"
-                    binding.tvCompras.text   = "Compras: ${dao.contarPorCategoria("Compras")} tareas"
+                    // FIX: antes usaba contarPorCategoria (global), ahora filtra
+                    // solo las tareas asignadas al participante activo
+                    categorias.map { dao.contarPorCategoriaYParticipante(usuarioId, it) }
                 }
+
+                binding.tvPersonal.text = "Personal: ${conteos[0]} tareas"
+                binding.tvTrabajo.text  = "Trabajo: ${conteos[1]} tareas"
+                binding.tvEstudios.text = "Estudios: ${conteos[2]} tareas"
+                binding.tvCompras.text  = "Compras: ${conteos[3]} tareas"
 
             } catch (e: Exception) {
                 binding.tvTotalTareas.text       = "0"

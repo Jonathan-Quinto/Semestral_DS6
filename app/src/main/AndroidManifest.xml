@@ -5,13 +5,13 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.TaskFlow">
 
-        <activity android:name=".ui.activities.MainActivity"
+        <!-- LAUNCHER apunta a SplashActivity para el flujo correcto de autenticación -->
+        <activity android:name=".ui.activities.SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -19,16 +19,31 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".ui.activities.LoginActivity"
+            android:exported="false" />
+
+        <activity android:name=".ui.activities.RegistroActivity"
+            android:exported="false" />
+
+        <activity android:name=".ui.activities.MainActivity"
+            android:exported="false" />
+
         <activity android:name=".ui.activities.AgregarTareaActivity"
             android:exported="false" />
 
         <activity android:name=".ui.activities.EditarTareaActivity"
             android:exported="false" />
 
+        <activity android:name=".ui.activities.NuevaTareaActivity"
+            android:exported="false" />
+
         <activity android:name=".ui.activities.CategoriasActivity"
             android:exported="false" />
 
         <activity android:name=".ui.activities.EstadisticasActivity"
+            android:exported="false" />
+
+        <activity android:name=".ui.activities.PerfilActivity"
             android:exported="false" />
 
     </application>

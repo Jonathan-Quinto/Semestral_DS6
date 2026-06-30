@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="azul_claro">#0582CA</color>
+    <color name="azul_oscuro">#003554</color>
+    <color name="azul_primario">#006494</color>
+    <color name="colorPrimary">#006494</color>
+    <color name="fondo">#F0F4F8</color>
+    <color name="naranja_medio">#F57C00</color>
+    <color name="rojo_eliminar">#D32F2F</color>
+    <color name="superficie">#FFFFFF</color>
+    <color name="texto_principal">#1A1A2E</color>
+    <color name="texto_secundario">#6B7280</color>
+    <color name="verde_completar">#388E3C</color>
+    <string name="app_name">TaskFlow</string>
+    <style name="Theme.TaskFlow" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/azul_primario</item>
+        <item name="colorPrimaryVariant">@color/azul_oscuro</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSecondary">@color/azul_claro</item>
+        <item name="android:statusBarColor">@color/azul_oscuro</item>
+    </style>
+</resources>

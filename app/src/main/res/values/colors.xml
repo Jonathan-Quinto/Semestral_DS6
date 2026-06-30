@@ -10,4 +10,6 @@
     <color name="rojo_eliminar">#D32F2F</color>
     <color name="verde_completar">#388E3C</color>
     <color name="naranja_medio">#F57C00</color>
+    <!-- Alias para compatibilidad con activity_splash.xml -->
+    <color name="colorPrimary">#006494</color>
 </resources>

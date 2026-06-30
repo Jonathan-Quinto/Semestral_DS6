@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.taskflow.app.adapter.CategoriaAdapter
 import com.taskflow.app.data.db.TaskFlowDatabase
 import com.taskflow.app.databinding.ActivityCategoriasBinding
+import com.taskflow.app.util.SesionManager
 import kotlinx.coroutines.launch
 
 /**
@@ -17,6 +18,9 @@ import kotlinx.coroutines.launch
  *
  *  Muestra las categorías disponibles con su cantidad
  *  de tareas. Al tocar una categoría filtra la lista.
+ *
+ *  FIX: Usa el DAO correcto según el rol del usuario
+ *  (contarPorCategoriaYLider o contarPorCategoria general).
  */
 class CategoriasActivity : AppCompatActivity() {
 
@@ -40,19 +44,26 @@ class CategoriasActivity : AppCompatActivity() {
     }
 
     /**
-     * Carga cada categoría con su conteo de tareas.
-     * Usa try-catch por si la base de datos falla.
+     * Carga cada categoría con su conteo de tareas filtrado por rol.
      */
     private fun cargarCategorias() {
+        val sesion = SesionManager(this)
+        val usuarioId = sesion.getUsuarioId()
+
         lifecycleScope.launch {
             try {
                 val listaCategorias = categoriasFijas.map { nombre ->
-                    val cantidad = db.tareaDao().contarPorCategoria(nombre)
+                    // FIX: contar según rol — el Líder ve sus tareas, el Participante las suyas
+                    val cantidad = if (sesion.esLider()) {
+                        db.tareaDao().contarPorCategoriaYLider(usuarioId, nombre)
+                    } else {
+                        // Para participante: contar tareas asignadas a él en esa categoría
+                        db.tareaDao().contarPorCategoriaYParticipante(usuarioId, nombre)
+                    }
                     Pair(nombre, cantidad)
                 }
 
                 val adaptador = CategoriaAdapter(listaCategorias) { categoriaSeleccionada ->
-                    // Al tocar una categoría, ir a pantalla filtrada
                     val intent = Intent(this@CategoriasActivity, MainActivity::class.java)
                     intent.putExtra("FILTRO_CATEGORIA", categoriaSeleccionada)
                     intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP

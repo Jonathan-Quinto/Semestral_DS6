@@ -85,7 +85,14 @@ abstract class TaskFlowDatabase : RoomDatabase() {
                     TaskFlowDatabase::class.java,
                     "taskflow_db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    // MIGRATION_1_2 se quitó: el ALTER TABLE manual no puede crear las
+                    // Foreign Keys que ahora exige la entidad Tarea, y eso hacía que Room
+                    // rechazara el esquema migrado y cerrara la app justo después de registrar
+                    // un usuario (primer acceso real a la BD).
+                    // fallbackToDestructiveMigration() reconstruye la BD desde cero con el
+                    // esquema correcto en cualquier cambio de versión — perfecto para este caso
+                    // porque no hay datos de producción que conservar.
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instancia
                 instancia

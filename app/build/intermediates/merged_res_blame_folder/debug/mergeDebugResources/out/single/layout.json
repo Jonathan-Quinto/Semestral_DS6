@@ -1,0 +1,58 @@
+[
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_splash.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_splash.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\item_categoria.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\item_categoria.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_perfil.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_perfil.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_editar_tarea.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_editar_tarea.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_agregar_tarea.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_agregar_tarea.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_estadisticas.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_estadisticas.xml"
+    },
+    {
+        "merged": "com.taskflow.app-mergeDebugResources-37:/layout/activity_main.xml",
+        "source": "com.taskflow.app-main-40:/layout/activity_main.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\item_tarea.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\item_tarea.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_categorias.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_categorias.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_login.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_login.xml"
+    },
+    {
+        "merged": "com.taskflow.app-mergeDebugResources-37:/layout/item_tarea.xml",
+        "source": "com.taskflow.app-main-40:/layout/item_tarea.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_registro.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_registro.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_nueva_tarea.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_nueva_tarea.xml"
+    },
+    {
+        "merged": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-mergeDebugResources-37:\\layout\\activity_main.xml",
+        "source": "C:\\Users\\jonat\\.gradle\\daemon\\8.4\\com.taskflow.app-main-40:\\layout\\activity_main.xml"
+    }
+]

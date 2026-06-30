@@ -8,10 +8,11 @@ import kotlinx.coroutines.flow.Flow
  * DAO de tareas — define todas las operaciones de base de datos disponibles.
  *
  * Queries nuevas para el sistema de roles:
- *  - obtenerPorLider()       → el Líder ve TODAS las tareas que creó
- *  - obtenerPorParticipante() → el Participante ve SOLO las que le asignaron
- *  - obtenerSinAsignar()     → tareas creadas pero sin participante asignado
- *  - asignarParticipante()   → el Líder asigna una tarea a un participante
+ *  - obtenerPorLider()               → el Líder ve TODAS las tareas que creó
+ *  - obtenerPorParticipante()         → el Participante ve SOLO las que le asignaron
+ *  - obtenerSinAsignar()             → tareas creadas pero sin participante asignado
+ *  - asignarParticipante()           → el Líder asigna una tarea a un participante
+ *  - contarPorCategoriaYParticipante → FIX: conteo para categorías del participante
  */
 @Dao
 interface TareaDao {
@@ -34,7 +35,6 @@ interface TareaDao {
 
     /**
      * Para el Líder: todas las tareas que él creó, ordenadas por estado y prioridad.
-     * El Líder ve el panorama completo de su equipo.
      */
     @Query("""
         SELECT * FROM tareas 
@@ -57,7 +57,6 @@ interface TareaDao {
 
     /**
      * Tareas creadas por el Líder que aún no tienen participante asignado.
-     * Útil para la pantalla de asignación pendiente.
      */
     @Query("""
         SELECT * FROM tareas 
@@ -68,7 +67,6 @@ interface TareaDao {
 
     /**
      * Asigna un participante a una tarea existente.
-     * Solo el Líder puede llamar esto.
      */
     @Query("UPDATE tareas SET asignadoA = :participanteId WHERE id = :tareaId")
     suspend fun asignarParticipante(tareaId: Int, participanteId: Int)
@@ -81,9 +79,6 @@ interface TareaDao {
 
     // ── Queries de categoría ──────────────────────────────────────────────────
 
-    /**
-     * Tareas de un Líder filtradas por categoría.
-     */
     @Query("""
         SELECT * FROM tareas 
         WHERE creadaPor = :liderId AND categoria = :categoria
@@ -91,9 +86,6 @@ interface TareaDao {
     """)
     fun obtenerPorCategoriaYLider(liderId: Int, categoria: String): Flow<List<Tarea>>
 
-    /**
-     * Tareas de un Participante filtradas por categoría.
-     */
     @Query("""
         SELECT * FROM tareas 
         WHERE asignadoA = :participanteId AND categoria = :categoria
@@ -103,9 +95,6 @@ interface TareaDao {
 
     // ── Búsqueda ──────────────────────────────────────────────────────────────
 
-    /**
-     * Búsqueda por título para el Líder.
-     */
     @Query("""
         SELECT * FROM tareas 
         WHERE creadaPor = :liderId AND titulo LIKE '%' || :texto || '%'
@@ -113,9 +102,6 @@ interface TareaDao {
     """)
     fun buscarPorLider(liderId: Int, texto: String): Flow<List<Tarea>>
 
-    /**
-     * Búsqueda por título para el Participante.
-     */
     @Query("""
         SELECT * FROM tareas 
         WHERE asignadoA = :participanteId AND titulo LIKE '%' || :texto || '%'
@@ -140,15 +126,15 @@ interface TareaDao {
     @Query("SELECT COUNT(*) FROM tareas WHERE creadaPor = :liderId AND categoria = :categoria")
     suspend fun contarPorCategoriaYLider(liderId: Int, categoria: String): Int
 
+    /** FIX: Método faltante — conteo de categoría para el Participante */
+    @Query("SELECT COUNT(*) FROM tareas WHERE asignadoA = :participanteId AND categoria = :categoria")
+    suspend fun contarPorCategoriaYParticipante(participanteId: Int, categoria: String): Int
+
     @Query("SELECT COUNT(*) FROM tareas WHERE creadaPor = :liderId AND asignadoA IS NULL")
     suspend fun contarSinAsignarPorLider(liderId: Int): Int
 
     // ── Compatibilidad (sin rol) ──────────────────────────────────────────────
 
-    /**
-     * Query general sin filtro de rol — se usa solo internamente.
-     * No usar en Activities directamente.
-     */
     @Query("""
         SELECT * FROM tareas 
         ORDER BY completada ASC,

@@ -11,15 +11,14 @@ import com.taskflow.app.model.Tarea
 /**
  * Adaptador para la lista de tareas en MainActivity.
  *
- * Parámetro nuevo: mostrarAcciones
- *  - true  → el Líder ve los botones Editar y Eliminar
- *  - false → el Participante solo ve el checkbox y el título
- *
- * Esto evita tener dos adapters distintos para cada rol.
+ * Parámetros clave:
+ *  - mostrarAcciones    → true para el Líder (ve Editar/Eliminar), false para Participante
+ *  - nombresAsignados   → mapa de participanteId → nombre, para mostrar "Asignado a: X" al Líder
  */
 class TareaAdapter(
     private val lista: List<Tarea>,
     private val mostrarAcciones: Boolean = true,
+    private val nombresAsignados: Map<Int, String> = emptyMap(),
     private val onEditar: (Tarea) -> Unit,
     private val onEliminar: (Tarea) -> Unit,
     private val onCompletarToggle: (Tarea) -> Unit
@@ -43,7 +42,7 @@ class TareaAdapter(
         holder.binding.tvCategoria.text   = tarea.categoria
         holder.binding.checkCompletada.isChecked = tarea.completada
 
-        // Mostrar fecha límite si existe
+        // Fecha límite
         if (tarea.fechaLimite.isNotBlank()) {
             holder.binding.tvFechaLimite.visibility = View.VISIBLE
             holder.binding.tvFechaLimite.text = "Límite: ${tarea.fechaLimite}"
@@ -51,7 +50,20 @@ class TareaAdapter(
             holder.binding.tvFechaLimite.visibility = View.GONE
         }
 
-        // Si la tarea está completada, tachar el título
+        // Asignado a — solo visible para el Líder cuando la tarea tiene participante asignado
+        if (mostrarAcciones && tarea.asignadoA != null) {
+            val nombre = nombresAsignados[tarea.asignadoA]
+            if (nombre != null) {
+                holder.binding.tvAsignadoA.visibility = View.VISIBLE
+                holder.binding.tvAsignadoA.text = "Asignado a: $nombre"
+            } else {
+                holder.binding.tvAsignadoA.visibility = View.GONE
+            }
+        } else {
+            holder.binding.tvAsignadoA.visibility = View.GONE
+        }
+
+        // Tachar título si está completada
         if (tarea.completada) {
             holder.binding.tvTituloTarea.paintFlags =
                 holder.binding.tvTituloTarea.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
@@ -62,7 +74,7 @@ class TareaAdapter(
             holder.binding.tvTituloTarea.alpha = 1.0f
         }
 
-        // Color de la etiqueta de prioridad
+        // Color de prioridad
         val colorPrioridad = when (tarea.prioridad) {
             "Alta"  -> android.graphics.Color.parseColor("#D32F2F")
             "Media" -> android.graphics.Color.parseColor("#F57C00")
@@ -70,13 +82,12 @@ class TareaAdapter(
         }
         holder.binding.tvPrioridad.setTextColor(colorPrioridad)
 
-        // Mostrar u ocultar botones de acción según el rol
+        // Botones de acción — solo el Líder los ve
         val visibilidadAcciones = if (mostrarAcciones) View.VISIBLE else View.GONE
         holder.binding.btnEditar.visibility   = visibilidadAcciones
         holder.binding.btnEliminar.visibility = visibilidadAcciones
 
-        // Listeners
-        holder.binding.btnEditar.setOnClickListener  { onEditar(tarea) }
+        holder.binding.btnEditar.setOnClickListener   { onEditar(tarea) }
         holder.binding.btnEliminar.setOnClickListener { onEliminar(tarea) }
         holder.binding.checkCompletada.setOnClickListener { onCompletarToggle(tarea) }
     }

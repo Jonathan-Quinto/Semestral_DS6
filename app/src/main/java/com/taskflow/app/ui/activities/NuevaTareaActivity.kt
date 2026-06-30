@@ -14,7 +14,8 @@ import kotlinx.coroutines.launch
 class NuevaTareaActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNuevaTareaBinding
-    private val db by lazy { TaskFlowDatabase.getInstance(this) }
+    // FIX: cambiar getInstance() por obtenerInstancia() — el método correcto del Singleton
+    private val db by lazy { TaskFlowDatabase.obtenerInstancia(this) }
     private var tareaExistente: Tarea? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {

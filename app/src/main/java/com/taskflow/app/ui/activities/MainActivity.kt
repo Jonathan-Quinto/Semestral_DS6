@@ -14,6 +14,7 @@ import com.taskflow.app.data.db.TaskFlowDatabase
 import com.taskflow.app.data.repository.TareaRepository
 import com.taskflow.app.databinding.ActivityMainBinding
 import com.taskflow.app.model.Tarea
+import com.taskflow.app.model.Usuario
 import com.taskflow.app.util.SesionManager
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -29,21 +30,28 @@ import kotlinx.coroutines.launch
  *  LÍDER:
  *   - Ve todas las tareas que creó
  *   - Puede agregar, editar, eliminar y asignar
- *   - El título del toolbar muestra "TaskFlow — Líder"
  *   - El FAB (+) está visible
+ *   - Cada tarea muestra a quién está asignada
+ *   - Estado vacío: "Presiona + para agregar una tarea"
  *
  *  PARTICIPANTE:
  *   - Ve solo las tareas asignadas a él
  *   - Puede marcar tareas como completadas
  *   - NO puede crear, editar ni eliminar tareas
  *   - El FAB (+) está oculto
- *   - Los botones Editar/Eliminar están ocultos en el adapter
+ *   - Estado vacío: "El líder aún no te ha asignado tareas"
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var sesionManager: SesionManager
     private lateinit var tareaRepository: TareaRepository
+
+    // Mapa de id → nombre de participantes (solo se carga si el usuario es Líder)
+    private var nombresParticipantes: Map<Int, String> = emptyMap()
+
+    // Categoría activa para filtrar (viene de CategoriasActivity). Null = sin filtro.
+    private var filtroCategoria: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,42 +60,80 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
 
+        filtroCategoria = intent.getStringExtra("FILTRO_CATEGORIA")
+
         val db = TaskFlowDatabase.obtenerInstancia(this)
         sesionManager = SesionManager(this)
         tareaRepository = TareaRepository(db.tareaDao(), db.usuarioDao(), sesionManager)
 
         configurarToolbarPorRol()
         configurarRecyclerView()
-        observarTareas()
+
+        // El Líder necesita los nombres de participantes para mostrarlos en las tarjetas
+        if (sesionManager.esLider()) {
+            cargarNombresParticipantes()
+        } else {
+            observarTareas()
+        }
+
         configurarBotones()
     }
 
-    /**
-     * Adapta el toolbar según el rol del usuario activo.
-     * El Líder ve el FAB. El Participante no.
-     */
     private fun configurarToolbarPorRol() {
         val nombre = sesionManager.getNombre()
         val rol = if (sesionManager.esLider()) "Líder" else "Participante"
-        supportActionBar?.subtitle = "$nombre · $rol"
 
-        // Solo el Líder puede crear tareas
+        supportActionBar?.subtitle = if (filtroCategoria != null) {
+            "$nombre · $rol · Categoría: ${filtroCategoria} (toca el título para quitar)"
+        } else {
+            "$nombre · $rol"
+        }
+
+        // Tocar el título de la toolbar quita el filtro de categoría activo
+        binding.toolbar.setOnClickListener {
+            if (filtroCategoria != null) {
+                filtroCategoria = null
+                configurarToolbarPorRol()
+                observarTareas()
+            }
+        }
+
         binding.fabAgregarTarea.visibility =
             if (sesionManager.esLider()) View.VISIBLE else View.GONE
+
+        binding.tvVacioSubtitulo.text = when {
+            filtroCategoria != null -> "No hay tareas en esta categoría"
+            sesionManager.esLider() -> "Presiona + para agregar una tarea"
+            else -> "El líder aún no te ha asignado tareas"
+        }
+    }
+
+    /**
+     * Carga el mapa id→nombre de participantes antes de observar las tareas,
+     * para que el adapter pueda mostrar "Asignado a: [nombre]" en cada tarjeta.
+     */
+    private fun cargarNombresParticipantes() {
+        lifecycleScope.launch {
+            try {
+                val participantes: List<Usuario> = tareaRepository.obtenerParticipantes()
+                nombresParticipantes = participantes.associate { it.id to it.nombre }
+            } catch (_: Exception) { }
+            observarTareas()
+        }
     }
 
     private fun configurarRecyclerView() {
         binding.rvTareas.layoutManager = LinearLayoutManager(this)
     }
 
-    /**
-     * Observa el repositorio en tiempo real.
-     * El repositorio decide automáticamente qué query usar según el rol.
-     */
     private fun observarTareas() {
         lifecycleScope.launch {
             try {
-                tareaRepository.obtenerTareasPorRol().collectLatest { listaTareas ->
+                val flow = filtroCategoria?.let { categoria ->
+                    tareaRepository.obtenerPorCategoria(categoria)
+                } ?: tareaRepository.obtenerTareasPorRol()
+
+                flow.collectLatest { listaTareas ->
                     actualizarUI(listaTareas)
                 }
             } catch (e: Exception) {
@@ -107,16 +153,17 @@ class MainActivity : AppCompatActivity() {
         val esLider = sesionManager.esLider()
 
         val adaptador = TareaAdapter(
-            lista = lista,
-            mostrarAcciones = esLider, // El participante no ve Editar/Eliminar
-            onEditar = { tarea ->
+            lista             = lista,
+            mostrarAcciones   = esLider,
+            nombresAsignados  = nombresParticipantes,
+            onEditar          = { tarea ->
                 if (esLider) {
                     val intent = Intent(this, EditarTareaActivity::class.java)
                     intent.putExtra("TAREA_ID", tarea.id)
                     startActivity(intent)
                 }
             },
-            onEliminar = { tarea ->
+            onEliminar        = { tarea ->
                 if (esLider) confirmarEliminar(tarea)
             },
             onCompletarToggle = { tarea ->
@@ -128,13 +175,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun mostrarEstadoVacio(vacio: Boolean) {
         binding.layoutVacio.visibility = if (vacio) View.VISIBLE else View.GONE
-        binding.rvTareas.visibility = if (vacio) View.GONE else View.VISIBLE
+        binding.rvTareas.visibility    = if (vacio) View.GONE else View.VISIBLE
     }
 
-    /**
-     * ── BOTONES ──
-     * Responsable: Jonathan Quinto
-     */
     private fun configurarBotones() {
         binding.fabAgregarTarea.setOnClickListener {
             startActivity(Intent(this, AgregarTareaActivity::class.java))
